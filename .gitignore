@@ -1,0 +1,10 @@
+*.graphml
+lts_edges/*
+example_routes/*
+cycleways/*
+cache/*
+
+test.py
+
+*.ai
+*.gpkg
