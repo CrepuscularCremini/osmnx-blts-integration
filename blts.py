@@ -89,14 +89,14 @@ def _conveyal_lts(r):
 def add_lts(G, lts_method = 'conveyal', lts_threshold = 'LTS 2', output_method = 'preferred', preference_multiplier = 4):
 
     implemented_lts_methods = ['conveyal']
-    lts_threshold = ["LTS 1", "LTS 2", "LTS 3", "LTS 4"]
+    lts_thresholds = ["LTS 1", "LTS 2", "LTS 3", "LTS 4"]
     output_methods = ['preferred', 'exclusive']
 
     if lts_method not in implemented_lts_methods:
         raise Exception("Please select from the implemented LTS methods: {0}".format(', '.join(implemented_lts_methods)))
 
-    if lts_threshold not in lts_levels:
-        raise Exception("Please select from the following LTS levels: {0}".format(', '.join(lts_levels)))
+    if lts_threshold not in lts_thresholds:
+        raise Exception("Please select from the following LTS levels: {0}".format(', '.join(lts_thresholds)))
 
     if output_method not in output_methods:
         raise Exception("Please select from the following output methods: {0}".format(', '.join(output_methods)))
@@ -128,7 +128,7 @@ def add_lts(G, lts_method = 'conveyal', lts_threshold = 'LTS 2', output_method =
         exclude = ['service']
 
         edges['LTS'] = edges.apply(_conveyal_lts, axis = 1)
-        edges['LTS'] = pd.Categorical(edges.LTS, categories = lts_levels, ordered = True)
+    edges['LTS'] = pd.Categorical(edges.LTS, categories = lts_threshold, ordered = True)
 
     if output_method == 'preferred':
         edges['lts_length'] = edges.apply(lambda r: r.length * preference_multiplier if pd.notnull(r.LTS) and int(r.LTS[-1]) > int(lts_threshold[-1]) else r.length, axis = 1)
