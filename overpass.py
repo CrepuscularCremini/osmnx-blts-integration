@@ -8,6 +8,7 @@ import os
 import re
 from math import ceil
 import matplotlib.pyplot as plt
+import warnings
 
 ## create overpass function
 def overpass(polygon, year, qtype):
@@ -79,7 +80,7 @@ def overpass(polygon, year, qtype):
 
 ## pull overpass data
 
-polygon = gpd.read_file('untitled_map.geojson')
+polygon = gpd.read_file(r"untitled_map.geojson")
 year = 2020
 way = overpass(polygon, year, qtype = 'way')
 node = overpass(polygon, year, qtype = 'node')
@@ -102,8 +103,8 @@ for idx, val in node.iterrows():
 # way.to_csv('way')
 # node.to_csv('node')
 
-way = pd.read_csv('way')
-node = pd.read_csv('node')
+# way = pd.read_csv('way')
+# node = pd.read_csv('node')
 
 # add missing columns if missing
 for col in ['parking:lane:right:width', 'parking:lane:left:width', 'parking:lane:both:width', 'cycleway:left:buffer', 'cycleway:right:buffer', 'cycleway:both:buffer', 'cycleway:left:width', 'cycleway:right:width', 'cycleway:both:width']:
@@ -359,6 +360,39 @@ way['lts_left'] = way.apply(lts_classifier, args = ['left'], axis = 1)
 
 way['LTS'] = way[['lts_right', 'lts_left']].max(axis = 1)
 
+unmarked_nodes = node.query('crossing == "unmarked"').id.to_list()
+umn = pd.DataFrame(columns = ['node', 'highway', 'LTS'])
+
+i = 0
+def nodinator(r):
+    global i
+    nodes = r.nodes
+    for node in nodes:
+        if node in unmarked_nodes:
+            umn.loc[i] = [node] + r[['highway', 'LTS']].values.tolist()
+            i += 1
+
+way.apply(nodinator, axis = 1)
+
+highway_order.reverse()
+umn['highway'] = pd.Categorical(umn['highway'], categories = highway_order, ordered = True)
+ns = umn.groupby('node').agg({'highway' : 'min', 'LTS' : 'max'})
+nn = ns.index.tolist()
+
+def nodad(r):
+    nodes = r.nodes
+    maxLts = r.LTS
+    for node in nodes:
+        if node in nn:
+            h, nLts = ns.loc[node][['highway', 'LTS']].values.tolist()
+            if r.highway == h:
+                maxLts = max(maxLts, nLts)
+    return maxLts
+
+way['intLTS'] = way.apply(nodad, axis = 1)
+
+##
+
 poly = polygon.iloc[0].geometry
 
 G = ox.graph.graph_from_polygon(poly, network_type = 'all')
@@ -366,7 +400,7 @@ G = ox.graph.graph_from_polygon(poly, network_type = 'all')
 gdfs = ox.utils_graph.graph_to_gdfs(G)
 nodes, edges = gdfs
 
-way_join = way[['id', 'LTS']].copy().to_dict('split')['data']
+way_join = way[['id', 'intLTS']].copy().to_dict('split')['data']
 wj = {d[0] : d[1] for d in way_join}
 
 def lts_merge(i):
@@ -399,5 +433,3 @@ else:
     edges.query('LTS <= @lts_threshold', inplace = True)
 
 LTS_G = ox.utils_graph.graph_from_gdfs(nodes, edges)
-
-
